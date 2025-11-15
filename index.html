@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>게임 AJAX CRUD (MockAPI + Modal)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body{ background:#f5f5f5; }
+    .wrap{ max-width:1100px; margin:24px auto; }
+    .pointer{ cursor:pointer; }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom">
+  <div class="container">
+    <a class="navbar-brand" href="#">🎮 AJAX Game CRUD</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="m-0">게임 목록</h5>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-secondary" id="btnRefresh">새로고침</button>
+              <button class="btn btn-sm btn-primary" id="btnOpenCreateModal">+ 추가</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-sm align-middle" id="gameTable">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>제목</th>
+                  <th>가격</th>
+                  <th>년도</th>
+                  <th>장르</th>
+                  <th>액션</th>
+                </tr>
+              </thead>
+              <tbody>
+
+              </tbody>
+            </table>
+          </div>
+
+          <small class="text-muted">제목을 클릭하면 수정 모달이 열립니다.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Modal: Add/Modify -->
+<div class="modal fade" id="gameModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="gameForm">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">게임 추가</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="gameId">
+
+          <div class="mb-2">
+            <label class="form-label">게임 이름</label>
+            <input type="text" id="gameTitle" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">가격(₩)</label>
+            <input type="number" id="gamePrice" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">플레이 시간(시간)</label>
+            <input type="number" id="gamePlaytime" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">제작사</label>
+            <input type="text" id="gameDeveloper" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">출시년도</label>
+            <input type="number" id="gameYear" class="form-control" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">장르</label>
+            <input type="text" id="gameGenre" class="form-control" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-primary" id="btnSave">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  //my mockAPI address
+  const API_URL = 'https://6915287984e8bd126af8d71e.mockapi.io/:endpoint';
+
+  const gameTableBody = document.querySelector('#gameTable tbody');
+  const btnRefresh = document.getElementById('btnRefresh');
+  const btnOpenCreateModal = document.getElementById('btnOpenCreateModal');
+
+  const gameForm = document.getElementById('gameForm');
+  const modalTitle = document.getElementById('modalTitle');
+  const gameId = document.getElementById('gameId');
+  const gameTitle = document.getElementById('gameTitle');
+  const gamePrice = document.getElementById('gamePrice');
+  const gamePlaytime = document.getElementById('gamePlaytime');
+  const gameDeveloper = document.getElementById('gameDeveloper');
+  const gameYear = document.getElementById('gameYear');
+  const gameGenre = document.getElementById('gameGenre');
+
+  const gameModalElement = document.getElementById('gameModal');
+  const gameModal = new bootstrap.Modal(gameModalElement);
+
+  // READ
+  async function loadGames(){
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      renderTable(data);
+    } catch (err) {
+      console.error(err);
+      alert('데이터를 불러오는 중 오류가 발생했습니다.');
+    }
+  }
+
+  function renderTable(list){
+    gameTableBody.innerHTML = '';
+    list.forEach(item => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${item.id}</td>
+        <td class="pointer text-primary fw-semibold" data-edit-id="${item.id}">${item.title}</td>
+        <td>${Number(item.price).toLocaleString()}원</td>
+        <td>${item.year}</td>
+        <td>${item.genre}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-danger" data-del-id="${item.id}">삭제</button>
+        </td>
+      `;
+      gameTableBody.appendChild(tr);
+    });
+  }
+
+  // Table click event (Mod / Rem)
+  gameTableBody.addEventListener('click', async (e) => {
+    const editId = e.target.getAttribute('data-edit-id');
+    const delId = e.target.getAttribute('data-del-id');
+
+    // Mod: Modal open
+    if(editId){
+      try {
+        const res = await fetch(`${API_URL}/${editId}`);
+        const item = await res.json();
+        openEditModal(item);
+      } catch (err) {
+        console.error(err);
+        alert('데이터를 불러오는 중 오류가 발생했습니다.');
+      }
+    }
+
+    // Delete button
+    if(delId){
+      if(confirm('이 게임을 삭제할까요?')){
+        try {
+          await fetch(`${API_URL}/${delId}`, { method: 'DELETE' });
+          loadGames();
+        } catch (err) {
+          console.error(err);
+          alert('삭제 중 오류가 발생했습니다.');
+        }
+      }
+    }
+  });
+
+  // Modal: extra mode
+  btnOpenCreateModal.addEventListener('click', () => {
+    openCreateModal();
+  });
+
+  function openCreateModal(){
+    modalTitle.textContent = '게임 추가';
+    gameForm.reset();
+    gameId.value = '';
+    gameModal.show();
+  }
+
+  function openEditModal(item){
+    modalTitle.textContent = '게임 수정';
+    gameId.value = item.id;
+    gameTitle.value = item.title;
+    gamePrice.value = item.price;
+    gamePlaytime.value = item.playtime;
+    gameDeveloper.value = item.developer;
+    gameYear.value = item.year;
+    gameGenre.value = item.genre;
+    gameModal.show();
+  }
+
+  // CREATE or UPDATE
+  gameForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      title: gameTitle.value.trim(),
+      price: Number(gamePrice.value),
+      playtime: Number(gamePlaytime.value),
+      developer: gameDeveloper.value.trim(),
+      year: Number(gameYear.value),
+      genre: gameGenre.value.trim()
+    };
+
+    if(!payload.title || !payload.developer){
+      alert('필수 항목을 입력하세요.');
+      return;
+    }
+
+    const id = gameId.value;
+    try {
+      if(id){ // UPDATE
+        await fetch(`${API_URL}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        alert('수정되었습니다.');
+      } else { // CREATE
+        await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        alert('추가되었습니다.');
+      }
+      gameModal.hide();
+      loadGames();
+    } catch (err) {
+      console.error(err);
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  });
+
+  btnRefresh.addEventListener('click', loadGames);
+
+  loadGames();
+</script>
+</body>
+</html>
