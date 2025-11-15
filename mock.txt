@@ -1,0 +1,4 @@
+https://6915287984e8bd126af8d71e.mockapi.io/:endpoint
+
+mock API address
+-체크용
